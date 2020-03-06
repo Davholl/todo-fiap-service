@@ -1,0 +1,4 @@
+entity Task {
+	title String,
+	isCompleted Boolean
+}

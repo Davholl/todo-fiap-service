@@ -1,22 +1,22 @@
 package br.com.fiap.todo.web.rest;
 
-import br.com.fiap.todo.domain.Task;
-import br.com.fiap.todo.repository.TaskRepository;
-import br.com.fiap.todo.web.rest.errors.BadRequestAlertException;
-
-import io.github.jhipster.web.util.HeaderUtil;
-import io.github.jhipster.web.util.ResponseUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
-
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import br.com.fiap.todo.domain.Task;
+import br.com.fiap.todo.service.TaskService;
 
 /**
  * REST controller for managing {@link br.com.fiap.todo.domain.Task}.
@@ -25,18 +25,16 @@ import java.util.Optional;
 @RequestMapping("/api")
 @Transactional
 public class TaskResource {
-
-    private final Logger log = LoggerFactory.getLogger(TaskResource.class);
-
-    private static final String ENTITY_NAME = "todofiapserviceTask";
-
-    @Value("${jhipster.clientApp.name}")
-    private String applicationName;
-
-    private final TaskRepository taskRepository;
-
-    public TaskResource(TaskRepository taskRepository) {
-        this.taskRepository = taskRepository;
+    
+    @Autowired
+    private TaskService taskService;
+    
+    public TaskResource(TaskService taskService) {
+        this.taskService = taskService;
+    }
+    
+    public TaskService getService() {
+    	return this.taskService;
     }
 
     /**
@@ -48,14 +46,7 @@ public class TaskResource {
      */
     @PostMapping("/tasks")
     public ResponseEntity<Task> createTask(@RequestBody Task task) throws URISyntaxException {
-        log.debug("REST request to save Task : {}", task);
-        if (task.getId() != null) {
-            throw new BadRequestAlertException("A new task cannot already have an ID", ENTITY_NAME, "idexists");
-        }
-        Task result = taskRepository.save(task);
-        return ResponseEntity.created(new URI("/api/tasks/" + result.getId()))
-            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
-            .body(result);
+        return taskService.createTask(task);
     }
 
     /**
@@ -69,14 +60,21 @@ public class TaskResource {
      */
     @PutMapping("/tasks")
     public ResponseEntity<Task> updateTask(@RequestBody Task task) throws URISyntaxException {
-        log.debug("REST request to update Task : {}", task);
-        if (task.getId() == null) {
-            throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        Task result = taskRepository.save(task);
-        return ResponseEntity.ok()
-            .headers(HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, task.getId().toString()))
-            .body(result);
+        return taskService.updateTask(task);
+    }
+    
+    /**
+     * {@code PUT  /tasks} : Updates an existing task.
+     *
+     * @param task the task to update.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated task,
+     * or with status {@code 400 (Bad Request)} if the task is not valid,
+     * or with status {@code 500 (Internal Server Error)} if the task couldn't be updated.
+     * @throws URISyntaxException if the Location URI syntax is incorrect.
+     */
+    @PutMapping("/tasks/toggle/{id}")
+    public ResponseEntity<Task> toggleTask(@RequestBody Long id) throws URISyntaxException {
+        return taskService.toggleTask(id);
     }
 
     /**
@@ -86,8 +84,7 @@ public class TaskResource {
      */
     @GetMapping("/tasks")
     public List<Task> getAllTasks() {
-        log.debug("REST request to get all Tasks");
-        return taskRepository.findAll();
+        return taskService.getAllTasks();
     }
 
     /**
@@ -98,9 +95,7 @@ public class TaskResource {
      */
     @GetMapping("/tasks/{id}")
     public ResponseEntity<Task> getTask(@PathVariable Long id) {
-        log.debug("REST request to get Task : {}", id);
-        Optional<Task> task = taskRepository.findById(id);
-        return ResponseUtil.wrapOrNotFound(task);
+        return taskService.getTask(id);
     }
 
     /**
@@ -111,8 +106,6 @@ public class TaskResource {
      */
     @DeleteMapping("/tasks/{id}")
     public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
-        log.debug("REST request to delete Task : {}", id);
-        taskRepository.deleteById(id);
-        return ResponseEntity.noContent().headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString())).build();
+       return taskService.deleteTask(id);
     }
 }

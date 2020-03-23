@@ -1,9 +1,19 @@
 package br.com.fiap.todo.web.rest;
 
-import br.com.fiap.todo.TodofiapserviceApp;
-import br.com.fiap.todo.domain.Task;
-import br.com.fiap.todo.repository.TaskRepository;
-import br.com.fiap.todo.web.rest.errors.ExceptionTranslator;
+import static br.com.fiap.todo.web.rest.TestUtil.createFormattingConversionService;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
+
+import javax.persistence.EntityManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,14 +28,10 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.Validator;
 
-import javax.persistence.EntityManager;
-import java.util.List;
-
-import static br.com.fiap.todo.web.rest.TestUtil.createFormattingConversionService;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasItem;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import br.com.fiap.todo.TodofiapserviceApp;
+import br.com.fiap.todo.domain.Task;
+import br.com.fiap.todo.service.TaskService;
+import br.com.fiap.todo.web.rest.errors.ExceptionTranslator;
 
 /**
  * Integration tests for the {@link TaskResource} REST controller.
@@ -40,7 +46,7 @@ public class TaskResourceIT {
     private static final Boolean UPDATED_IS_COMPLETED = true;
 
     @Autowired
-    private TaskRepository taskRepository;
+    private TaskService taskService;
 
     @Autowired
     private MappingJackson2HttpMessageConverter jacksonMessageConverter;
@@ -64,7 +70,7 @@ public class TaskResourceIT {
     @BeforeEach
     public void setup() {
         MockitoAnnotations.initMocks(this);
-        final TaskResource taskResource = new TaskResource(taskRepository);
+        final TaskResource taskResource = new TaskResource(taskService);
         this.restTaskMockMvc = MockMvcBuilders.standaloneSetup(taskResource)
             .setCustomArgumentResolvers(pageableArgumentResolver)
             .setControllerAdvice(exceptionTranslator)
@@ -106,7 +112,7 @@ public class TaskResourceIT {
     @Test
     @Transactional
     public void createTask() throws Exception {
-        int databaseSizeBeforeCreate = taskRepository.findAll().size();
+        int databaseSizeBeforeCreate = taskService.getRepository().findAll().size();
 
         // Create the Task
         restTaskMockMvc.perform(post("/api/tasks")
@@ -115,7 +121,7 @@ public class TaskResourceIT {
             .andExpect(status().isCreated());
 
         // Validate the Task in the database
-        List<Task> taskList = taskRepository.findAll();
+        List<Task> taskList = taskService.getRepository().findAll();
         assertThat(taskList).hasSize(databaseSizeBeforeCreate + 1);
         Task testTask = taskList.get(taskList.size() - 1);
         assertThat(testTask.getTitle()).isEqualTo(DEFAULT_TITLE);
@@ -125,7 +131,7 @@ public class TaskResourceIT {
     @Test
     @Transactional
     public void createTaskWithExistingId() throws Exception {
-        int databaseSizeBeforeCreate = taskRepository.findAll().size();
+        int databaseSizeBeforeCreate = taskService.getRepository().findAll().size();
 
         // Create the Task with an existing ID
         task.setId(1L);
@@ -137,7 +143,7 @@ public class TaskResourceIT {
             .andExpect(status().isBadRequest());
 
         // Validate the Task in the database
-        List<Task> taskList = taskRepository.findAll();
+        List<Task> taskList = taskService.getRepository().findAll();
         assertThat(taskList).hasSize(databaseSizeBeforeCreate);
     }
 
@@ -146,7 +152,7 @@ public class TaskResourceIT {
     @Transactional
     public void getAllTasks() throws Exception {
         // Initialize the database
-        taskRepository.saveAndFlush(task);
+    	taskService.getRepository().saveAndFlush(task);
 
         // Get all the taskList
         restTaskMockMvc.perform(get("/api/tasks?sort=id,desc"))
@@ -161,7 +167,7 @@ public class TaskResourceIT {
     @Transactional
     public void getTask() throws Exception {
         // Initialize the database
-        taskRepository.saveAndFlush(task);
+    	taskService.getRepository().saveAndFlush(task);
 
         // Get the task
         restTaskMockMvc.perform(get("/api/tasks/{id}", task.getId()))
@@ -184,12 +190,12 @@ public class TaskResourceIT {
     @Transactional
     public void updateTask() throws Exception {
         // Initialize the database
-        taskRepository.saveAndFlush(task);
+    	taskService.getRepository().saveAndFlush(task);
 
-        int databaseSizeBeforeUpdate = taskRepository.findAll().size();
+        int databaseSizeBeforeUpdate = taskService.getRepository().findAll().size();
 
         // Update the task
-        Task updatedTask = taskRepository.findById(task.getId()).get();
+        Task updatedTask = taskService.getRepository().findById(task.getId()).get();
         // Disconnect from session so that the updates on updatedTask are not directly saved in db
         em.detach(updatedTask);
         updatedTask
@@ -202,7 +208,7 @@ public class TaskResourceIT {
             .andExpect(status().isOk());
 
         // Validate the Task in the database
-        List<Task> taskList = taskRepository.findAll();
+        List<Task> taskList = taskService.getRepository().findAll();
         assertThat(taskList).hasSize(databaseSizeBeforeUpdate);
         Task testTask = taskList.get(taskList.size() - 1);
         assertThat(testTask.getTitle()).isEqualTo(UPDATED_TITLE);
@@ -212,7 +218,7 @@ public class TaskResourceIT {
     @Test
     @Transactional
     public void updateNonExistingTask() throws Exception {
-        int databaseSizeBeforeUpdate = taskRepository.findAll().size();
+        int databaseSizeBeforeUpdate = taskService.getRepository().findAll().size();
 
         // Create the Task
 
@@ -223,7 +229,7 @@ public class TaskResourceIT {
             .andExpect(status().isBadRequest());
 
         // Validate the Task in the database
-        List<Task> taskList = taskRepository.findAll();
+        List<Task> taskList = taskService.getRepository().findAll();
         assertThat(taskList).hasSize(databaseSizeBeforeUpdate);
     }
 
@@ -231,9 +237,9 @@ public class TaskResourceIT {
     @Transactional
     public void deleteTask() throws Exception {
         // Initialize the database
-        taskRepository.saveAndFlush(task);
+    	taskService.getRepository().saveAndFlush(task);
 
-        int databaseSizeBeforeDelete = taskRepository.findAll().size();
+        int databaseSizeBeforeDelete = taskService.getRepository().findAll().size();
 
         // Delete the task
         restTaskMockMvc.perform(delete("/api/tasks/{id}", task.getId())
@@ -241,7 +247,7 @@ public class TaskResourceIT {
             .andExpect(status().isNoContent());
 
         // Validate the database contains one less item
-        List<Task> taskList = taskRepository.findAll();
+        List<Task> taskList = taskService.getRepository().findAll();
         assertThat(taskList).hasSize(databaseSizeBeforeDelete - 1);
     }
 }

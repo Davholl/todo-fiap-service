@@ -36,7 +36,9 @@
     "otherModules": [],
     "blueprints": [],
     "skipClient": true,
-    "skipUserManagement": true
+    "skipUserManagement": true,
+    "herokuAppName": "todofiapservice",
+    "herokuDeployType": "git"
   },
   "git-provider": "GitHub",
   "git-company": "Davholl",
